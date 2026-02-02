@@ -172,7 +172,7 @@ src/
 
 ## UI / UX Guidelines
 
-- Clean, minimal, professional UI
+- Clean, minimal, professional UI,White + orange themes
 - Responsive design that adapts naturally to screen size
 - Desktop-first visual balance with mobile compatibility
 - Layout must feel appropriate for the current viewport:
