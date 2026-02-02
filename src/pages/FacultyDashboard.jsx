@@ -22,6 +22,7 @@ function FacultyDashboard() {
     const [expandedCourseId, setExpandedCourseId] = useState(null);
     const [courseStudents, setCourseStudents] = useState({});
     const [studentsLoading, setStudentsLoading] = useState({});
+    const [activeView, setActiveView] = useState('my-courses');
     const navigate = useNavigate();
 
     const fetchMyCourses = async (userId) => {
@@ -284,14 +285,9 @@ function FacultyDashboard() {
         navigate('/login');
     };
 
-    const handleNavClick = (section) => {
+    const handleNavClick = (view) => {
         setDrawerOpen(false);
-        const element = document.getElementById(section);
-        if (element) {
-            setTimeout(() => {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-        }
+        setActiveView(view);
     };
 
     const handleSubmitCourse = async (e) => {
@@ -389,34 +385,28 @@ function FacultyDashboard() {
                 <div className="p-5 pt-6">
                     <nav className="space-y-1">
                         <button
-                            onClick={() => handleNavClick('my-courses-section')}
-                            className="flex items-center w-full text-left text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition-colors py-3 px-4 rounded-lg"
+                            onClick={() => handleNavClick('my-courses')}
+                            className={`flex items-center w-full text-left text-sm font-medium transition-colors py-3 px-4 rounded-lg ${activeView === 'my-courses' ? 'text-white bg-orange-500 hover:bg-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'}`}
                         >
-                            My Courses
+                            Course approval status
                         </button>
                         <button
-                            onClick={() => handleNavClick('create-course-section')}
-                            className="flex items-center w-full text-left text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors py-3 px-4 rounded-lg"
+                            onClick={() => handleNavClick('create-course')}
+                            className={`flex items-center w-full text-left text-sm font-medium transition-colors py-3 px-4 rounded-lg ${activeView === 'create-course' ? 'text-white bg-orange-500 hover:bg-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'}`}
                         >
                             Create Course
                         </button>
                         <button
-                            onClick={() => handleNavClick('enrollments-section')}
-                            className="flex items-center w-full text-left text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors py-3 px-4 rounded-lg"
+                            onClick={() => handleNavClick('enrollments')}
+                            className={`flex items-center w-full text-left text-sm font-medium transition-colors py-3 px-4 rounded-lg ${activeView === 'enrollments' ? 'text-white bg-orange-500 hover:bg-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'}`}
                         >
                             Enrollments to Approve
                         </button>
                         <button
-                            onClick={() => handleNavClick('course-info-section')}
-                            className="flex items-center w-full text-left text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors py-3 px-4 rounded-lg"
+                            onClick={() => handleNavClick('course-info')}
+                            className={`flex items-center w-full text-left text-sm font-medium transition-colors py-3 px-4 rounded-lg ${activeView === 'course-info' ? 'text-white bg-orange-500 hover:bg-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'}`}
                         >
-                            Course Info
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center w-full text-left text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors py-3 px-4 rounded-lg"
-                        >
-                            Logout
+                            My Courses
                         </button>
                     </nav>
                 </div>
@@ -433,189 +423,34 @@ function FacultyDashboard() {
                         </p>
                     </header>
 
-                    <section id="my-courses-section" className="mb-10 sm:mb-12">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
-                            My Courses
-                        </h2>
+                    {activeView === 'my-courses' && (
+                        <section id="my-courses-section">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
+                                Courses
+                            </h2>
 
-                        {loading ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-gray-500 text-sm">Loading courses...</p>
-                            </div>
-                        ) : error ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-red-500 text-sm">{error}</p>
-                            </div>
-                        ) : myCourses.length === 0 ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-gray-500 text-sm">You have not created any courses yet.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {myCourses.map((course) => (
-                                    <div
-                                        key={course.course_id}
-                                        className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
-                                    >
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-1 h-10 bg-orange-400 rounded-full"></div>
-                                                <div>
-                                                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                                                        {course.course_name}
-                                                    </h3>
-                                                    <p className="mt-1 text-xs text-gray-400">
-                                                        Created: {new Date(course.created_at).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <span className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-lg capitalize ${getStatusColor(course.status)}`}>
-                                                {course.status}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    <section id="create-course-section" className="mb-10 sm:mb-12">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
-                            Create New Course
-                        </h2>
-
-                        <div className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
-                            {formFeedback.message && (
-                                <div className={`mb-4 p-3 text-sm rounded-lg ${formFeedback.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                                    {formFeedback.message}
+                            {loading ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">Loading courses...</p>
                                 </div>
-                            )}
-                            <form onSubmit={handleSubmitCourse} className="space-y-4">
-                                <div>
-                                    <label htmlFor="courseName" className="block text-sm font-medium text-gray-700 mb-2">
-                                        Course Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="courseName"
-                                        value={courseName}
-                                        onChange={(e) => setCourseName(e.target.value)}
-                                        placeholder="Enter course name"
-                                        className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        required
-                                        disabled={submitting}
-                                    />
+                            ) : error ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-red-500 text-sm">{error}</p>
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-5 py-2.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition-colors rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit for Approval'}
-                                </button>
-                            </form>
-                        </div>
-                    </section>
-
-                    <section id="enrollments-section">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
-                            Enrollment Approvals
-                        </h2>
-
-                        {enrollmentFeedback.message && (
-                            <div className={`mb-4 p-3 text-sm rounded-lg ${enrollmentFeedback.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                                {enrollmentFeedback.message}
-                            </div>
-                        )}
-
-                        {enrollmentsLoading ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-gray-500 text-sm">Loading enrollments...</p>
-                            </div>
-                        ) : enrollmentsError ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-red-500 text-sm">{enrollmentsError}</p>
-                            </div>
-                        ) : pendingEnrollments.length === 0 ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-gray-500 text-sm">No pending enrollments.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {pendingEnrollments.map((enrollment) => (
-                                    <div
-                                        key={enrollment.enrollment_id}
-                                        className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
-                                    >
-                                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                                            <div className="flex-1 min-w-0">
+                            ) : myCourses.length === 0 ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">You have not created any courses yet.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {myCourses.map((course) => (
+                                        <div
+                                            key={course.course_id}
+                                            className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-1 h-10 bg-orange-400 rounded-full"></div>
-                                                    <div>
-                                                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                                                            {enrollment.student_name}
-                                                        </h3>
-                                                        <p className="mt-1 text-sm text-gray-500">
-                                                            Course: {enrollment.course_name}
-                                                        </p>
-                                                        <p className="mt-1 text-xs text-gray-400">
-                                                            Enrolled: {new Date(enrollment.enrolled_at).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-3 shrink-0">
-                                                <button
-                                                    onClick={() => handleApproveEnrollment(enrollment.enrollment_id)}
-                                                    className="px-5 py-2.5 text-xs sm:text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition-colors rounded-lg"
-                                                >
-                                                    Approve
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRejectEnrollment(enrollment.enrollment_id)}
-                                                    className="px-5 py-2.5 text-xs sm:text-sm font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors rounded-lg"
-                                                >
-                                                    Reject
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    <section id="course-info-section">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
-                            Course Info
-                        </h2>
-
-                        {approvedCoursesLoading ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-gray-500 text-sm">Loading approved courses...</p>
-                            </div>
-                        ) : approvedCoursesError ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-red-500 text-sm">{approvedCoursesError}</p>
-                            </div>
-                        ) : approvedCourses.length === 0 ? (
-                            <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                <p className="text-gray-500 text-sm">No approved courses yet.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {approvedCourses.map((course) => (
-                                    <div
-                                        key={course.course_id}
-                                        className="bg-white rounded-xl border border-gray-100 overflow-hidden"
-                                    >
-                                        <button
-                                            onClick={() => toggleCourseExpand(course.course_id)}
-                                            className="w-full p-5 sm:p-6 text-left hover:bg-gray-50 transition-colors"
-                                        >
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-1 h-10 bg-green-400 rounded-full"></div>
                                                     <div>
                                                         <h3 className="text-base sm:text-lg font-semibold text-gray-800">
                                                             {course.course_name}
@@ -625,48 +460,211 @@ function FacultyDashboard() {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <span className="text-gray-400 text-lg">
-                                                    {expandedCourseId === course.course_id ? '▲' : '▼'}
+                                                <span className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-lg capitalize ${getStatusColor(course.status)}`}>
+                                                    {course.status}
                                                 </span>
                                             </div>
-                                        </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
 
-                                        {expandedCourseId === course.course_id && (
-                                            <div className="px-5 sm:px-6 pb-5 sm:pb-6 border-t border-gray-100">
-                                                <h4 className="text-sm font-medium text-gray-700 mt-4 mb-3">
-                                                    Enrolled Students
-                                                </h4>
+                    {activeView === 'create-course' && (
+                        <section id="create-course-section">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
+                                Create New Course
+                            </h2>
 
-                                                {studentsLoading[course.course_id] ? (
-                                                    <p className="text-gray-500 text-sm">Loading students...</p>
-                                                ) : courseStudents[course.course_id]?.error ? (
-                                                    <p className="text-red-500 text-sm">Failed to load students.</p>
-                                                ) : courseStudents[course.course_id]?.students?.length === 0 ? (
-                                                    <p className="text-gray-500 text-sm">No approved students yet.</p>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        {courseStudents[course.course_id]?.students?.map((student) => (
-                                                            <div
-                                                                key={student.enrollment_id}
-                                                                className="p-3 bg-gray-50 rounded-lg"
-                                                            >
-                                                                <p className="text-sm font-medium text-gray-800">
-                                                                    {student.student_name}
-                                                                </p>
-                                                                <p className="text-xs text-gray-400 mt-1">
-                                                                    Enrolled: {new Date(student.enrolled_at).toLocaleString()}
-                                                                </p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                            <div className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
+                                {formFeedback.message && (
+                                    <div className={`mb-4 p-3 text-sm rounded-lg ${formFeedback.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                        {formFeedback.message}
                                     </div>
-                                ))}
+                                )}
+                                <form onSubmit={handleSubmitCourse} className="space-y-4">
+                                    <div>
+                                        <label htmlFor="courseName" className="block text-sm font-medium text-gray-700 mb-2">
+                                            Course Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="courseName"
+                                            value={courseName}
+                                            onChange={(e) => setCourseName(e.target.value)}
+                                            placeholder="Enter course name"
+                                            className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                            required
+                                            disabled={submitting}
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={submitting}
+                                        className="px-5 py-2.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition-colors rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {submitting ? 'Submitting...' : 'Submit for Approval'}
+                                    </button>
+                                </form>
                             </div>
-                        )}
-                    </section>
+                        </section>
+                    )}
+
+                    {activeView === 'enrollments' && (
+                        <section id="enrollments-section">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
+                                Enrollment Approvals
+                            </h2>
+
+                            {enrollmentFeedback.message && (
+                                <div className={`mb-4 p-3 text-sm rounded-lg ${enrollmentFeedback.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                    {enrollmentFeedback.message}
+                                </div>
+                            )}
+
+                            {enrollmentsLoading ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">Loading enrollments...</p>
+                                </div>
+                            ) : enrollmentsError ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-red-500 text-sm">{enrollmentsError}</p>
+                                </div>
+                            ) : pendingEnrollments.length === 0 ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">No pending enrollments.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {pendingEnrollments.map((enrollment) => (
+                                        <div
+                                            key={enrollment.enrollment_id}
+                                            className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-1 h-10 bg-orange-400 rounded-full"></div>
+                                                        <div>
+                                                            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                                                                {enrollment.student_name}
+                                                            </h3>
+                                                            <p className="mt-1 text-sm text-gray-500">
+                                                                Course: {enrollment.course_name}
+                                                            </p>
+                                                            <p className="mt-1 text-xs text-gray-400">
+                                                                Enrolled: {new Date(enrollment.enrolled_at).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-3 shrink-0">
+                                                    <button
+                                                        onClick={() => handleApproveEnrollment(enrollment.enrollment_id)}
+                                                        className="px-5 py-2.5 text-xs sm:text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition-colors rounded-lg"
+                                                    >
+                                                        Approve
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRejectEnrollment(enrollment.enrollment_id)}
+                                                        className="px-5 py-2.5 text-xs sm:text-sm font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors rounded-lg"
+                                                    >
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {activeView === 'course-info' && (
+                        <section id="course-info-section">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-5">
+                                Course Info
+                            </h2>
+
+                            {approvedCoursesLoading ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">Loading approved courses...</p>
+                                </div>
+                            ) : approvedCoursesError ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-red-500 text-sm">{approvedCoursesError}</p>
+                                </div>
+                            ) : approvedCourses.length === 0 ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">No approved courses yet.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {approvedCourses.map((course) => (
+                                        <div
+                                            key={course.course_id}
+                                            className="bg-white rounded-xl border border-gray-100 overflow-hidden"
+                                        >
+                                            <button
+                                                onClick={() => toggleCourseExpand(course.course_id)}
+                                                className="w-full p-5 sm:p-6 text-left hover:bg-gray-50 transition-colors"
+                                            >
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-1 h-10 bg-green-400 rounded-full"></div>
+                                                        <div>
+                                                            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                                                                {course.course_name}
+                                                            </h3>
+                                                            <p className="mt-1 text-xs text-gray-400">
+                                                                Created: {new Date(course.created_at).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-400 text-lg">
+                                                        {expandedCourseId === course.course_id ? '▲' : '▼'}
+                                                    </span>
+                                                </div>
+                                            </button>
+
+                                            {expandedCourseId === course.course_id && (
+                                                <div className="px-5 sm:px-6 pb-5 sm:pb-6 border-t border-gray-100">
+                                                    <h4 className="text-sm font-medium text-gray-700 mt-4 mb-3">
+                                                        Enrolled Students
+                                                    </h4>
+
+                                                    {studentsLoading[course.course_id] ? (
+                                                        <p className="text-gray-500 text-sm">Loading students...</p>
+                                                    ) : courseStudents[course.course_id]?.error ? (
+                                                        <p className="text-red-500 text-sm">Failed to load students.</p>
+                                                    ) : courseStudents[course.course_id]?.students?.length === 0 ? (
+                                                        <p className="text-gray-500 text-sm">No approved students yet.</p>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            {courseStudents[course.course_id]?.students?.map((student) => (
+                                                                <div
+                                                                    key={student.enrollment_id}
+                                                                    className="p-3 bg-gray-50 rounded-lg"
+                                                                >
+                                                                    <p className="text-sm font-medium text-gray-800">
+                                                                        {student.student_name}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-400 mt-1">
+                                                                        Enrolled: {new Date(student.enrolled_at).toLocaleString()}
+                                                                    </p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
                 </div>
             </main>
         </div>
