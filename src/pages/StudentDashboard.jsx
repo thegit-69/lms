@@ -1,47 +1,203 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import supabase from '../services/supabaseClient';
 
 function StudentDashboard() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [activeView, setActiveView] = useState('available-courses');
     const [expandedCourseId, setExpandedCourseId] = useState(null);
+    const [availableCourses, setAvailableCourses] = useState([]);
+    const [coursesLoading, setCoursesLoading] = useState(true);
+    const [coursesError, setCoursesError] = useState(null);
+    const [studentEmail, setStudentEmail] = useState('');
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [enrollingCourseId, setEnrollingCourseId] = useState(null);
+    const [enrollmentStatus, setEnrollmentStatus] = useState({});
+    const [myEnrollments, setMyEnrollments] = useState([]);
+    const [enrollmentsLoading, setEnrollmentsLoading] = useState(true);
+    const [enrollmentsError, setEnrollmentsError] = useState(null);
+    const [approvedCourses, setApprovedCourses] = useState([]);
+    const [courseInfoLoading, setCourseInfoLoading] = useState(true);
+    const [courseInfoError, setCourseInfoError] = useState(null);
+    const [courseStudents, setCourseStudents] = useState({});
+    const [studentsLoading, setStudentsLoading] = useState(null);
     const navigate = useNavigate();
 
-    const studentEmail = 'student@example.com';
+    useEffect(() => {
+        const fetchAvailableCourses = async () => {
+            setCoursesLoading(true);
+            setCoursesError(null);
 
-    const availableCourses = [
-        { id: 1, name: 'Data Structures', faculty: 'Prof. Rahul', status: 'approved' },
-        { id: 2, name: 'Operating Systems', faculty: 'Prof. Sharma', status: 'approved' },
-        { id: 3, name: 'Database Management', faculty: 'Prof. Kumar', status: 'approved' }
-    ];
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    setStudentEmail(user.email || '');
+                    setCurrentUserId(user.id);
+                }
 
-    const myEnrollments = [
-        { id: 1, courseName: 'Introduction to Programming', status: 'approved', enrolledAt: '2026-01-15T10:30:00' },
-        { id: 2, courseName: 'Web Development', status: 'pending', enrolledAt: '2026-01-28T14:00:00' },
-        { id: 3, courseName: 'Machine Learning', status: 'rejected', enrolledAt: '2026-01-20T09:00:00' }
-    ];
+                const { data: coursesData, error: coursesError } = await supabase
+                    .from('courses')
+                    .select('course_id, course_name, faculty_id, created_at, status')
+                    .eq('status', 'approved')
+                    .order('created_at', { ascending: false });
 
-    const courseInfoData = [
-        {
-            id: 1,
-            name: 'Introduction to Programming',
-            createdAt: '2025-12-01T08:00:00',
-            students: [
-                { id: 1, name: 'John Doe', enrolledAt: '2026-01-10T10:00:00' },
-                { id: 2, name: 'Jane Smith', enrolledAt: '2026-01-12T11:30:00' }
-            ]
-        },
-        {
-            id: 2,
-            name: 'Web Development',
-            createdAt: '2025-12-15T09:00:00',
-            students: [
-                { id: 3, name: 'Bob Wilson', enrolledAt: '2026-01-18T14:00:00' }
-            ]
-        }
-    ];
+                if (coursesError) {
+                    console.error('Courses error:', coursesError);
+                    setCoursesError('Failed to load courses.');
+                    setCoursesLoading(false);
+                    return;
+                }
 
-    const handleLogout = () => {
+                const facultyIds = (coursesData || []).map(c => c.faculty_id).filter(Boolean);
+                let facultyMap = {};
+
+                if (facultyIds.length > 0) {
+                    const { data: profilesData, error: profilesError } = await supabase
+                        .from('profiles')
+                        .select('id, username')
+                        .in('id', facultyIds);
+
+                    if (profilesError) {
+                        console.error('Profiles error:', profilesError);
+                    } else {
+                        facultyMap = (profilesData || []).reduce((acc, p) => {
+                            acc[p.id] = p.username;
+                            return acc;
+                        }, {});
+                    }
+                }
+
+                const coursesWithFaculty = (coursesData || []).map(course => ({
+                    ...course,
+                    faculty_name: facultyMap[course.faculty_id] || null
+                }));
+
+                setAvailableCourses(coursesWithFaculty);
+            } catch (err) {
+                console.error('Courses error:', err);
+                setCoursesError('An unexpected error occurred.');
+            }
+
+            setCoursesLoading(false);
+        };
+
+        fetchAvailableCourses();
+    }, []);
+
+    useEffect(() => {
+        const fetchMyEnrollments = async () => {
+            setEnrollmentsLoading(true);
+            setEnrollmentsError(null);
+
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    setEnrollmentsError('Not authenticated.');
+                    setEnrollmentsLoading(false);
+                    return;
+                }
+
+                const { data: enrollmentsData, error: enrollmentsError } = await supabase
+                    .from('enrollments')
+                    .select(`
+                        enrollment_id,
+                        status,
+                        enrolled_at,
+                        course_id,
+                        courses!inner(course_name, faculty_id)
+                    `)
+                    .eq('student_id', user.id)
+                    .order('enrolled_at', { ascending: false });
+
+                if (enrollmentsError) {
+                    console.error('Enrollments error:', enrollmentsError);
+
+                    const { data: fallbackEnrollments, error: fallbackError } = await supabase
+                        .from('enrollments')
+                        .select('enrollment_id, course_id, status, enrolled_at')
+                        .eq('student_id', user.id)
+                        .order('enrolled_at', { ascending: false });
+
+                    if (fallbackError) {
+                        console.error('Enrollments error:', fallbackError);
+                        setEnrollmentsError('Failed to load enrollments.');
+                        setEnrollmentsLoading(false);
+                        return;
+                    }
+
+                    const courseIds = (fallbackEnrollments || []).map(e => e.course_id).filter(Boolean);
+                    let courseMap = {};
+
+                    if (courseIds.length > 0) {
+                        const { data: coursesData, error: coursesErr } = await supabase
+                            .from('courses')
+                            .select('course_id, course_name')
+                            .in('course_id', courseIds);
+
+                        if (!coursesErr && coursesData) {
+                            courseMap = coursesData.reduce((acc, c) => {
+                                acc[c.course_id] = c.course_name;
+                                return acc;
+                            }, {});
+                        }
+                    }
+
+                    const mergedEnrollments = (fallbackEnrollments || []).map(enrollment => ({
+                        ...enrollment,
+                        courseName: courseMap[enrollment.course_id] || 'Unknown Course'
+                    }));
+
+                    setMyEnrollments(mergedEnrollments);
+                } else {
+                    const formattedEnrollments = (enrollmentsData || []).map(enrollment => ({
+                        ...enrollment,
+                        courseName: enrollment.courses?.course_name || 'Unknown Course'
+                    }));
+
+                    setMyEnrollments(formattedEnrollments);
+                }
+            } catch (err) {
+                console.error('Enrollments error:', err);
+                setEnrollmentsError('An unexpected error occurred.');
+            }
+
+            setEnrollmentsLoading(false);
+        };
+
+        fetchMyEnrollments();
+    }, []);
+
+    useEffect(() => {
+        const fetchApprovedCourses = async () => {
+            setCourseInfoLoading(true);
+            setCourseInfoError(null);
+
+            try {
+                const { data, error } = await supabase
+                    .from('courses')
+                    .select('course_id, course_name, created_at')
+                    .eq('status', 'approved')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('Approved courses error:', error);
+                    setCourseInfoError('Failed to load courses.');
+                } else {
+                    setApprovedCourses(data || []);
+                }
+            } catch (err) {
+                console.error('Approved courses error:', err);
+                setCourseInfoError('An unexpected error occurred.');
+            }
+
+            setCourseInfoLoading(false);
+        };
+
+        fetchApprovedCourses();
+    }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         navigate('/login');
     };
 
@@ -50,16 +206,170 @@ function StudentDashboard() {
         setActiveView(view);
     };
 
-    const handleEnroll = (courseName) => {
-        alert(`Enrollment request sent for "${courseName}".`);
+    const handleEnroll = async (courseId) => {
+        if (!currentUserId) {
+            setEnrollmentStatus(prev => ({
+                ...prev,
+                [courseId]: { type: 'error', message: 'Not authenticated.' }
+            }));
+            return;
+        }
+
+        setEnrollingCourseId(courseId);
+        setEnrollmentStatus(prev => ({
+            ...prev,
+            [courseId]: { type: '', message: '' }
+        }));
+
+        try {
+            const { data: existingEnrollment, error: checkError } = await supabase
+                .from('enrollments')
+                .select('enrollment_id')
+                .eq('course_id', courseId)
+                .eq('student_id', currentUserId)
+                .maybeSingle();
+
+            if (checkError) {
+                console.error('Enroll error:', checkError);
+                setEnrollmentStatus(prev => ({
+                    ...prev,
+                    [courseId]: { type: 'error', message: 'Failed to submit enrollment.' }
+                }));
+                setEnrollingCourseId(null);
+                return;
+            }
+
+            if (existingEnrollment) {
+                setEnrollmentStatus(prev => ({
+                    ...prev,
+                    [courseId]: { type: 'warning', message: 'You have already requested enrollment.' }
+                }));
+                setEnrollingCourseId(null);
+                return;
+            }
+
+            const { error: insertError } = await supabase
+                .from('enrollments')
+                .insert({
+                    course_id: courseId,
+                    student_id: currentUserId,
+                    status: 'pending'
+                });
+
+            if (insertError) {
+                console.error('Enroll error:', insertError);
+                setEnrollmentStatus(prev => ({
+                    ...prev,
+                    [courseId]: { type: 'error', message: 'Failed to submit enrollment.' }
+                }));
+            } else {
+                setEnrollmentStatus(prev => ({
+                    ...prev,
+                    [courseId]: { type: 'success', message: 'Enrollment request submitted.' }
+                }));
+            }
+        } catch (err) {
+            console.error('Enroll error:', err);
+            setEnrollmentStatus(prev => ({
+                ...prev,
+                [courseId]: { type: 'error', message: 'Failed to submit enrollment.' }
+            }));
+        }
+
+        setEnrollingCourseId(null);
     };
 
-    const toggleCourseExpand = (courseId) => {
+    const toggleCourseExpand = async (courseId) => {
         if (expandedCourseId === courseId) {
             setExpandedCourseId(null);
-        } else {
-            setExpandedCourseId(courseId);
+            return;
         }
+
+        setExpandedCourseId(courseId);
+
+        if (courseStudents[courseId]) {
+            return;
+        }
+
+        setStudentsLoading(courseId);
+
+        try {
+            const { data, error } = await supabase
+                .from('enrollments')
+                .select(`
+                    enrollment_id,
+                    student_id,
+                    enrolled_at,
+                    profiles!inner(id, username)
+                `)
+                .eq('course_id', courseId)
+                .eq('status', 'approved');
+
+            if (error) {
+                console.error('Enrollments error:', error);
+
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('enrollments')
+                    .select('enrollment_id, student_id, enrolled_at')
+                    .eq('course_id', courseId)
+                    .eq('status', 'approved');
+
+                if (fallbackError) {
+                    console.error('Enrollments error:', fallbackError);
+                    setCourseStudents(prev => ({
+                        ...prev,
+                        [courseId]: { error: true, students: [] }
+                    }));
+                } else {
+                    const studentIds = (fallbackData || []).map(e => e.student_id).filter(Boolean);
+                    let profileMap = {};
+
+                    if (studentIds.length > 0) {
+                        const { data: profilesData } = await supabase
+                            .from('profiles')
+                            .select('id, username')
+                            .in('id', studentIds);
+
+                        if (profilesData) {
+                            profileMap = profilesData.reduce((acc, p) => {
+                                acc[p.id] = p.username;
+                                return acc;
+                            }, {});
+                        }
+                    }
+
+                    const students = (fallbackData || []).map(e => ({
+                        id: e.enrollment_id,
+                        name: profileMap[e.student_id] || 'Unknown Student',
+                        enrolledAt: e.enrolled_at
+                    }));
+
+                    setCourseStudents(prev => ({
+                        ...prev,
+                        [courseId]: { error: false, students }
+                    }));
+                }
+            } else {
+                const students = (data || []).map(e => ({
+                    id: e.enrollment_id,
+                    name: e.profiles?.username || 'Unknown Student',
+                    enrolledAt: e.enrolled_at
+                }));
+
+                setCourseStudents(prev => ({
+                    ...prev,
+                    [courseId]: { error: false, students }
+                }));
+            }
+        } catch (err) {
+            console.error('Enrollments error:', err);
+            setCourseStudents(prev => ({
+                ...prev,
+                [courseId]: { error: true, students: [] }
+            }));
+        }
+
+        setStudentsLoading(null);
     };
 
     const getStatusColor = (status) => {
@@ -156,15 +466,23 @@ function StudentDashboard() {
                                 Available Courses
                             </h2>
 
-                            {availableCourses.length === 0 ? (
+                            {coursesLoading ? (
                                 <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                    <p className="text-gray-500 text-sm">No courses available at the moment.</p>
+                                    <p className="text-gray-500 text-sm">Loading courses...</p>
+                                </div>
+                            ) : coursesError ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-red-500 text-sm">{coursesError}</p>
+                                </div>
+                            ) : availableCourses.length === 0 ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">No available courses at the moment.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     {availableCourses.map((course) => (
                                         <div
-                                            key={course.id}
+                                            key={course.course_id}
                                             className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
                                         >
                                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -172,19 +490,36 @@ function StudentDashboard() {
                                                     <div className="w-1 h-10 bg-orange-400 rounded-full"></div>
                                                     <div>
                                                         <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                                                            {course.name}
+                                                            {course.course_name}
                                                         </h3>
-                                                        <p className="mt-1 text-sm text-gray-500">
-                                                            Faculty: {course.faculty}
+                                                        {course.faculty_name && (
+                                                            <p className="mt-1 text-sm text-gray-500">
+                                                                Faculty: {course.faculty_name}
+                                                            </p>
+                                                        )}
+                                                        <p className="mt-1 text-xs text-gray-400">
+                                                            Created: {new Date(course.created_at).toLocaleString()}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleEnroll(course.name)}
-                                                    className="px-5 py-2.5 text-xs sm:text-sm font-medium text-orange-500 border border-orange-200 hover:bg-orange-50 transition-colors rounded-lg"
-                                                >
-                                                    Enroll
-                                                </button>
+                                                <div className="flex flex-col items-end gap-2">
+                                                    <button
+                                                        onClick={() => handleEnroll(course.course_id)}
+                                                        disabled={enrollingCourseId === course.course_id || enrollmentStatus[course.course_id]?.type === 'success' || enrollmentStatus[course.course_id]?.type === 'warning'}
+                                                        className="px-5 py-2.5 text-xs sm:text-sm font-medium text-orange-500 border border-orange-200 hover:bg-orange-50 transition-colors rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {enrollingCourseId === course.course_id
+                                                            ? 'Enrolling...'
+                                                            : enrollmentStatus[course.course_id]?.type === 'success' || enrollmentStatus[course.course_id]?.type === 'warning'
+                                                                ? 'Requested'
+                                                                : 'Enroll'}
+                                                    </button>
+                                                    {enrollmentStatus[course.course_id]?.message && (
+                                                        <p className={`text-xs ${enrollmentStatus[course.course_id]?.type === 'success' ? 'text-green-600' : enrollmentStatus[course.course_id]?.type === 'warning' ? 'text-orange-600' : 'text-red-500'}`}>
+                                                            {enrollmentStatus[course.course_id].message}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -199,15 +534,23 @@ function StudentDashboard() {
                                 My Enrollments
                             </h2>
 
-                            {myEnrollments.length === 0 ? (
+                            {enrollmentsLoading ? (
                                 <div className="bg-white p-6 rounded-xl border border-gray-100">
-                                    <p className="text-gray-500 text-sm">You have not enrolled in any courses yet.</p>
+                                    <p className="text-gray-500 text-sm">Loading enrollments...</p>
+                                </div>
+                            ) : enrollmentsError ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-red-500 text-sm">{enrollmentsError}</p>
+                                </div>
+                            ) : myEnrollments.length === 0 ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">You have not enrolled in any course yet.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     {myEnrollments.map((enrollment) => (
                                         <div
-                                            key={enrollment.id}
+                                            key={enrollment.enrollment_id}
                                             className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
                                         >
                                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -218,7 +561,7 @@ function StudentDashboard() {
                                                             {enrollment.courseName}
                                                         </h3>
                                                         <p className="mt-1 text-xs text-gray-400">
-                                                            Enrolled: {new Date(enrollment.enrolledAt).toLocaleString()}
+                                                            Enrolled: {new Date(enrollment.enrolled_at).toLocaleString()}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -239,50 +582,62 @@ function StudentDashboard() {
                                 Course Info
                             </h2>
 
-                            {courseInfoData.length === 0 ? (
+                            {courseInfoLoading ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-gray-500 text-sm">Loading courses...</p>
+                                </div>
+                            ) : courseInfoError ? (
+                                <div className="bg-white p-6 rounded-xl border border-gray-100">
+                                    <p className="text-red-500 text-sm">{courseInfoError}</p>
+                                </div>
+                            ) : approvedCourses.length === 0 ? (
                                 <div className="bg-white p-6 rounded-xl border border-gray-100">
                                     <p className="text-gray-500 text-sm">No course information available.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {courseInfoData.map((course) => (
+                                    {approvedCourses.map((course) => (
                                         <div
-                                            key={course.id}
+                                            key={course.course_id}
                                             className="bg-white rounded-xl border border-gray-100 overflow-hidden"
                                         >
                                             <button
-                                                onClick={() => toggleCourseExpand(course.id)}
+                                                onClick={() => toggleCourseExpand(course.course_id)}
                                                 className="w-full p-5 sm:p-6 text-left hover:bg-gray-50 transition-colors"
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-1 h-10 bg-green-400 rounded-full"></div>
+                                                        <div className="w-1 h-10 bg-orange-400 rounded-full"></div>
                                                         <div>
                                                             <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                                                                {course.name}
+                                                                {course.course_name}
                                                             </h3>
                                                             <p className="mt-1 text-xs text-gray-400">
-                                                                Created: {new Date(course.createdAt).toLocaleString()}
+                                                                Created: {new Date(course.created_at).toLocaleString()}
                                                             </p>
                                                         </div>
                                                     </div>
                                                     <span className="text-gray-400 text-lg">
-                                                        {expandedCourseId === course.id ? '▲' : '▼'}
+                                                        {expandedCourseId === course.course_id ? '▲' : '▼'}
                                                     </span>
                                                 </div>
                                             </button>
 
-                                            {expandedCourseId === course.id && (
+                                            {expandedCourseId === course.course_id && (
                                                 <div className="px-5 sm:px-6 pb-5 sm:pb-6 border-t border-gray-100">
                                                     <h4 className="text-sm font-medium text-gray-700 mt-4 mb-3">
-                                                        Enrolled Students
+                                                        Approved Students
                                                     </h4>
 
-                                                    {course.students.length === 0 ? (
-                                                        <p className="text-gray-500 text-sm">No students enrolled yet.</p>
+                                                    {studentsLoading === course.course_id ? (
+                                                        <p className="text-gray-500 text-sm">Loading students...</p>
+                                                    ) : courseStudents[course.course_id]?.error ? (
+                                                        <p className="text-red-500 text-sm">Failed to load students.</p>
+                                                    ) : !courseStudents[course.course_id]?.students?.length ? (
+                                                        <p className="text-gray-500 text-sm">No approved students yet.</p>
                                                     ) : (
                                                         <div className="space-y-2">
-                                                            {course.students.map((student) => (
+                                                            {courseStudents[course.course_id].students.map((student) => (
                                                                 <div
                                                                     key={student.id}
                                                                     className="p-3 bg-gray-50 rounded-lg"
