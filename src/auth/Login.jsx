@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import supabase from '../services/supabaseClient';
 
 function Login() {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -16,6 +16,9 @@ function Login() {
         setLoading(true);
 
         try {
+            // Convert username to email format
+            const email = `${username}@lms.local`;
+
             // Sign in with Supabase Auth
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                 email,
@@ -70,18 +73,18 @@ function Login() {
                 <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 lg:space-y-6">
                     <div>
                         <label
-                            htmlFor="email"
+                            htmlFor="username"
                             className="block text-sm font-medium text-gray-700 mb-1"
                         >
-                            Email
+                            Username
                         </label>
                         <input
-                            type="email"
-                            id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            type="text"
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
-                            placeholder="Enter your email"
+                            placeholder="Enter your username"
                             className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
                         />
                     </div>
